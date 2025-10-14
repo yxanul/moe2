@@ -48,6 +48,20 @@ class SwiGLUExpert(nn.Module):
         return output
 
 
+def build_swiglu_expert(
+    model_dim,
+    num_experts_per_device=None,
+    num_local_experts=None,
+    hidden_size_per_expert=None,
+    intermediate_dim=None,
+    **kwargs,
+):
+    """Factory for Tutel 'custom' experts."""
+    nle = num_local_experts if num_local_experts is not None else num_experts_per_device
+    inter = intermediate_dim if intermediate_dim is not None else hidden_size_per_expert
+    return SwiGLUExpert(model_dim, inter, nle)
+
+
 class MoELayer(nn.Module):
     """Mixture of Experts layer using Tutel."""
     
@@ -88,8 +102,9 @@ class MoELayer(nn.Module):
             gate_type={'type': 'top', 'k': top_k, 'capacity_factor': capacity_factor, 'fp32_gate': True},
             experts={
                 'type': 'custom',
-                'module': SwiGLUExpert(d_model, expert_intermediate_dim, self.num_local_experts),
+                'module': build_swiglu_expert,
                 'num_experts_per_device': self.num_local_experts,
+                'hidden_size_per_expert': expert_intermediate_dim,
             },
             model_dim=d_model,
             scan_expert_func=lambda name, param: setattr(param, 'skip_allreduce', True),
