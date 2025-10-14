@@ -67,36 +67,39 @@ class FineWebEduDataset(IterableDataset):
             except Exception:
                 pass
 
+        token_buffer = []
+        eos_id = self.tokenizer.eos_token_id
+
         for sample in ds:
             text = sample.get('text', '')
-            
-            # Skip empty texts
-            if not text or len(text.strip()) == 0:
+            if not text or not text.strip():
                 continue
-            
-            # Tokenize the text
-            tokens = self.tokenizer(
+
+            # Stream tokens without padding, concatenate docs with EOS
+            ids = self.tokenizer(
                 text,
-                truncation=True,
-                max_length=self.max_seq_len,
-                return_tensors='pt',
-                padding='max_length',
-                return_attention_mask=True,
-            )
-            
-            # Extract tensors
-            input_ids = tokens['input_ids'].squeeze(0)  # [seq_len]
-            attention_mask = tokens['attention_mask'].squeeze(0)  # [seq_len]
-            
-            # Create labels (shifted input_ids for next-token prediction)
-            labels = input_ids.clone()
-            labels[attention_mask == 0] = -100  # Ignore padding in loss
-            
-            yield {
-                'input_ids': input_ids,
-                'attention_mask': attention_mask,
-                'labels': labels,
-            }
+                truncation=False,
+                padding=False,
+                return_attention_mask=False,
+            )['input_ids']
+
+            ids.append(eos_id)
+            token_buffer.extend(ids)
+
+            # Emit fixed-length chunks for training
+            while len(token_buffer) >= self.max_seq_len:
+                chunk = token_buffer[:self.max_seq_len]
+                token_buffer = token_buffer[self.max_seq_len:]
+
+                input_ids = torch.tensor(chunk, dtype=torch.long)
+                attention_mask = torch.ones(self.max_seq_len, dtype=torch.long)
+                labels = input_ids.clone()
+
+                yield {
+                    'input_ids': input_ids,
+                    'attention_mask': attention_mask,
+                    'labels': labels,
+                }
 
 
 class DataCollator:

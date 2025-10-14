@@ -11,6 +11,7 @@ import time
 import yaml
 from pathlib import Path
 from typing import Dict, Optional
+import zlib
 
 import torch
 import torch.nn as nn
@@ -356,12 +357,19 @@ def main():
                             logger.log_gradient_stats(model, step=global_step)
                     
                     # Print progress
+                    # Lightweight batch fingerprint to detect repetition
+                    try:
+                        batch_crc32 = zlib.crc32(batch['input_ids'].detach().cpu().numpy().tobytes())
+                    except Exception:
+                        batch_crc32 = -1
+
                     print(
                         f"Step {global_step} | "
                         f"Loss: {avg_loss:.4f} | "
                         f"Aux Loss: {avg_aux_loss:.6f} | "
                         f"LR: {scheduler.get_last_lr()[0]:.6f} | "
-                        f"Tokens/s: {tokens_per_second:.0f}"
+                        f"Tokens/s: {tokens_per_second:.0f} | "
+                        f"batch_crc32: {batch_crc32}"
                     )
                 
                 # Save checkpoint
