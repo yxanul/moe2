@@ -54,13 +54,14 @@ def create_optimizer(model: nn.Module, config: Dict):
     
     # Separate parameters that should not be decayed
     no_decay = ["bias", "LayerNorm.weight", "layer_norm", "ln", "norm"]
+    wd = float(training_config['weight_decay'])
     optimizer_grouped_parameters = [
         {
             "params": [
                 p for n, p in model.named_parameters()
                 if not any(nd in n for nd in no_decay) and p.requires_grad
             ],
-            "weight_decay": training_config['weight_decay'],
+            "weight_decay": wd,
         },
         {
             "params": [
@@ -72,11 +73,15 @@ def create_optimizer(model: nn.Module, config: Dict):
     ]
     
     # Create 8-bit AdamW optimizer
+    lr = float(training_config['learning_rate'])
+    betas = tuple(float(x) for x in optimizer_config['betas'])
+    eps = float(optimizer_config['eps'])
+
     optimizer = bnb.optim.AdamW8bit(
         optimizer_grouped_parameters,
-        lr=training_config['learning_rate'],
-        betas=optimizer_config['betas'],
-        eps=optimizer_config['eps'],
+        lr=lr,
+        betas=betas,
+        eps=eps,
     )
     
     return optimizer

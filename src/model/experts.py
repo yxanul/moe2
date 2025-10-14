@@ -31,7 +31,7 @@ class SwiGLUExpert(nn.Module):
         for param in self.parameters():
             setattr(param, 'skip_allreduce', True)
     
-    def forward(self, x):
+    def forward(self, x, ctx=None):
         """
         x: [num_local_experts, capacity, d_model]
         """
