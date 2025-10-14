@@ -7,7 +7,7 @@ model:
   n_layers: 16
   n_heads: 16
   n_kv_heads: 8  # For grouped query attention
-  num_experts: 64
+  num_experts: 32
   expert_intermediate_dim: 512
   top_k: 2
   capacity_factor: 1.0
