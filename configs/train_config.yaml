@@ -1,0 +1,72 @@
+# MoE Training Configuration
+
+# Model configuration
+model:
+  vocab_size: 50257  # GPT-2 vocab size (will be padded to 50304)
+  d_model: 1024
+  n_layers: 16
+  n_heads: 16
+  n_kv_heads: 8  # For grouped query attention
+  num_experts: 64
+  expert_intermediate_dim: 512
+  top_k: 2
+  capacity_factor: 1.0
+  aux_loss_weight: 0.001
+  qk_norm_eps: 1e-5  # For BF16 training
+  rms_norm_eps: 1e-6
+  dropout: 0.1
+  max_seq_len: 2048
+  tie_word_embeddings: true
+
+# Training configuration
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  learning_rate: 1e-4
+  weight_decay: 0.01
+  warmup_steps: 1000
+  max_steps: 100000
+  eval_steps: 500
+  save_steps: 5000
+  logging_steps: 10
+  grad_clip: 1.0
+  seed: 42
+  bf16: true
+  fp16: false
+  tf32: true  # Enable TensorFloat32 for better performance on Ampere GPUs
+
+# Optimizer configuration
+optimizer:
+  type: "adamw_8bit"  # Using bitsandbytes 8-bit AdamW
+  betas: [0.9, 0.95]
+  eps: 1e-8
+
+# Dataset configuration
+dataset:
+  name: "HuggingFaceFW/fineweb-edu"
+  subset: "sample-10BT"
+  max_seq_len: 2048
+  num_workers: 4
+  prefetch_factor: 2
+  streaming: true
+  buffer_size: 10000
+
+# Wandb configuration
+wandb:
+  project: "moe-training"
+  name: "moe_16L_64E_topk2"
+  tags: ["moe", "gpt2-tokenizer", "fineweb-edu", "swiglu", "gqa", "qk-norm"]
+  mode: "online"  # "online", "offline", or "disabled"
+  log_model: false  # Whether to log model checkpoints to wandb
+
+# Distributed training
+distributed:
+  backend: "nccl"  # "nccl" for GPU, "gloo" for CPU
+  enabled: true
+  local_rank: -1
+
+# Checkpointing
+checkpoint:
+  save_dir: "./checkpoints"
+  resume_from: null  # Path to checkpoint to resume from
+  save_total_limit: 5  # Maximum number of checkpoints to keep
