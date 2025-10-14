@@ -122,15 +122,22 @@ class MoELayer(nn.Module):
         output = self._moe(x)
         
         # Get auxiliary loss for load balancing
-        aux_loss = self._moe.l_aux if hasattr(self._moe, 'l_aux') else 0.0
+        aux_val = self._moe.l_aux if hasattr(self._moe, 'l_aux') else 0.0
+        if isinstance(aux_val, torch.Tensor):
+            try:
+                aux_loss = float(aux_val.detach().float().cpu().item())
+            except Exception:
+                aux_loss = float(aux_val.item())
+        else:
+            aux_loss = float(aux_val)
         
         # Apply dropout
         output = self.dropout(output)
         
         # Collect routing statistics
         routing_stats = {
-            'aux_loss': aux_loss,
-            'load_balancing_loss': aux_loss * self.aux_loss_weight,
+            'aux_loss': float(aux_loss),
+            'load_balancing_loss': float(aux_loss * self.aux_loss_weight),
         }
         
         return output, aux_loss, routing_stats
