@@ -36,12 +36,13 @@ class FineWebEduDataset(IterableDataset):
         self.original_vocab_size = len(self.tokenizer)  # 50257
         self.padded_vocab_size = 50304  # Next multiple of 128
         
-        # Load base streaming dataset (unshuffled here)
-        self.dataset = load_dataset(
+        # Load base streaming dataset (unshuffled here) ONCE
+        self._base_dataset = load_dataset(
             "HuggingFaceFW/fineweb-edu",
             name="sample-10BT",
             split="train",
-            streaming=streaming
+            streaming=True,
+            trust_remote_code=True,
         )
 
     def set_epoch(self, epoch: int):
@@ -50,27 +51,32 @@ class FineWebEduDataset(IterableDataset):
     
     def __iter__(self) -> Iterator[Dict[str, torch.Tensor]]:
         """Iterate through the dataset."""
-        # Prepare per-epoch shuffled and worker-sharded stream
-        ds = self.dataset
-        if self.streaming:
-            ds = ds.shuffle(seed=self.seed, buffer_size=self.buffer_size)
-            # Reshuffle per epoch if supported
-            try:
-                ds.set_epoch(self._epoch)
-            except Exception:
-                pass
+        # Determine worker sharding
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            worker_id = 0
+            num_workers = 1
+        else:
+            worker_id = worker_info.id
+            num_workers = worker_info.num_workers
 
-        worker = torch.utils.data.get_worker_info()
-        if worker is not None and worker.num_workers and worker.num_workers > 1:
-            try:
-                ds = ds.shard(num_shards=worker.num_workers, index=worker.id)
-            except Exception:
-                pass
+        # Shuffle BEFORE manual sharding for better randomness; include epoch in seed
+        ds = self._base_dataset.shuffle(
+            seed=self.seed + self._epoch + worker_id,
+            buffer_size=self.buffer_size,
+        )
+        ds_iter = iter(ds)
 
         token_buffer = []
         eos_id = self.tokenizer.eos_token_id
 
-        for sample in ds:
+        items_processed = 0
+        for sample in ds_iter:
+            # Manual stride-based worker sharding
+            if num_workers > 1 and (items_processed % num_workers) != worker_id:
+                items_processed += 1
+                continue
+            items_processed += 1
             text = sample.get('text', '')
             if not text or not text.strip():
                 continue
