@@ -167,6 +167,13 @@ def main():
     
     # Load configuration
     config = load_config(args.config)
+
+    # Enable TF32 matmul if requested
+    if config.get('training', {}).get('tf32', False):
+        try:
+            torch.set_float32_matmul_precision('high')
+        except Exception:
+            pass
     
     # Set random seed
     torch.manual_seed(config['training']['seed'])

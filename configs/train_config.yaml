@@ -15,12 +15,12 @@ model:
   qk_norm_eps: 1e-5  # For BF16 training
   rms_norm_eps: 1e-6
   dropout: 0.1
-  max_seq_len: 2048
+  max_seq_len: 1024
   tie_word_embeddings: true
 
 # Training configuration
 training:
-  batch_size: 1
+  batch_size: 2
   gradient_accumulation_steps: 4
   learning_rate: 1e-4
   weight_decay: 0.01
@@ -45,7 +45,7 @@ optimizer:
 dataset:
   name: "HuggingFaceFW/fineweb-edu"
   subset: "sample-10BT"
-  max_seq_len: 2048
+  max_seq_len: 1024
   num_workers: 4
   prefetch_factor: 2
   streaming: true
