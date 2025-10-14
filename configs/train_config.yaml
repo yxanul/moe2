@@ -14,7 +14,7 @@ model:
   aux_loss_weight: 0.001
   qk_norm_eps: 1e-5  # For BF16 training
   rms_norm_eps: 1e-6
-  dropout: 0.1
+  dropout: 0.0
   max_seq_len: 1024
   tie_word_embeddings: true
 
@@ -22,8 +22,8 @@ model:
 training:
   batch_size: 4
   gradient_accumulation_steps: 8
-  learning_rate: 1e-4
-  weight_decay: 0.01
+  learning_rate: 4e-3
+  weight_decay: 0.0
   warmup_steps: 1000
   max_steps: 100000
   eval_steps: 500

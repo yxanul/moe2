@@ -276,6 +276,13 @@ def main():
     ]
     
     for epoch in range(100):  # Large number, will break on max_steps
+        # Inform streaming dataset about current epoch for per-epoch reshuffle
+        try:
+            if hasattr(dataloader, 'dataset') and hasattr(dataloader.dataset, 'set_epoch'):
+                dataloader.dataset.set_epoch(epoch)
+        except Exception:
+            pass
+
         for batch_idx, batch in enumerate(dataloader):
             # Training step
             step_metrics, routing_stats = train_step(

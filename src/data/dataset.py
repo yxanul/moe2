@@ -15,11 +15,14 @@ class FineWebEduDataset(IterableDataset):
         tokenizer_name: str = "gpt2",
         streaming: bool = True,
         buffer_size: int = 10000,
+        seed: int = 42,
     ):
         super().__init__()
         self.max_seq_len = max_seq_len
         self.streaming = streaming
         self.buffer_size = buffer_size
+        self.seed = int(seed)
+        self._epoch = 0
         
         # Initialize GPT-2 tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
@@ -33,24 +36,38 @@ class FineWebEduDataset(IterableDataset):
         self.original_vocab_size = len(self.tokenizer)  # 50257
         self.padded_vocab_size = 50304  # Next multiple of 128
         
-        # Load dataset
+        # Load base streaming dataset (unshuffled here)
         self.dataset = load_dataset(
             "HuggingFaceFW/fineweb-edu",
             name="sample-10BT",
             split="train",
             streaming=streaming
         )
-        
-        # Shuffle buffer for streaming
-        if streaming:
-            self.dataset = self.dataset.shuffle(
-                seed=42,
-                buffer_size=buffer_size
-            )
+
+    def set_epoch(self, epoch: int):
+        """Set current epoch for reshuffling streamed data."""
+        self._epoch = int(epoch)
     
     def __iter__(self) -> Iterator[Dict[str, torch.Tensor]]:
         """Iterate through the dataset."""
-        for sample in self.dataset:
+        # Prepare per-epoch shuffled and worker-sharded stream
+        ds = self.dataset
+        if self.streaming:
+            ds = ds.shuffle(seed=self.seed, buffer_size=self.buffer_size)
+            # Reshuffle per epoch if supported
+            try:
+                ds.set_epoch(self._epoch)
+            except Exception:
+                pass
+
+        worker = torch.utils.data.get_worker_info()
+        if worker is not None and worker.num_workers and worker.num_workers > 1:
+            try:
+                ds = ds.shard(num_shards=worker.num_workers, index=worker.id)
+            except Exception:
+                pass
+
+        for sample in ds:
             text = sample.get('text', '')
             
             # Skip empty texts
