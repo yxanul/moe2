@@ -181,12 +181,11 @@ class MoETransformer(nn.Module):
         # Process attention mask for padding only
         # SDPA will handle causal masking via is_causal parameter
         if attention_mask is not None:
-            # Create a 4D mask for SDPA [batch_size, n_heads, seq_len, seq_len]
-            # This mask only handles padding, causal is handled by SDPA
-            attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)  # [B, 1, 1, seq_len]
-            attention_mask = attention_mask.expand(-1, -1, seq_len, -1)  # [B, 1, seq_len, seq_len]
-            # Convert to additive mask format for SDPA
-            attention_mask = (1.0 - attention_mask) * torch.finfo(x.dtype).min
+            # Build boolean padding mask for SDPA [B, 1, S, S]; True indicates masked positions
+            pad_mask = (attention_mask == 0)
+            pad_mask = pad_mask.unsqueeze(1).unsqueeze(2)  # [B, 1, 1, S]
+            pad_mask = pad_mask.expand(-1, -1, seq_len, -1)  # [B, 1, S, S]
+            attention_mask = pad_mask
         
         # Pass through transformer layers
         total_aux_loss = 0.0

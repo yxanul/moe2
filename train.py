@@ -237,7 +237,7 @@ def main():
     )
     
     # Create gradient scaler for mixed precision
-    scaler = GradScaler(enabled=config['training']['fp16'])
+    scaler = torch.amp.GradScaler('cuda', enabled=config['training']['fp16'])
     
     # Create dataloader
     if is_main_process:

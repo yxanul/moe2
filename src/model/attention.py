@@ -184,18 +184,11 @@ class GroupedQueryAttention(nn.Module):
         # Always apply causal mask for autoregressive modeling
         # attention_mask (if provided) handles padding
         if attention_mask is not None and attention_mask.dim() == 4:
-            # Combine causal mask with provided attention mask (for padding)
-            # Create causal mask
+            # Combine causal mask with provided attention mask (boolean). True means masked.
             causal_mask = torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device).triu(diagonal=1)
-            causal_mask = causal_mask.unsqueeze(0).unsqueeze(0)  # [1, 1, seq_len, seq_len]
-            causal_mask = causal_mask.expand(batch_size, self.n_heads, -1, -1)
-            
-            # Convert causal mask to additive format
-            causal_additive = causal_mask.to(x.dtype) * torch.finfo(x.dtype).min
-            
-            # Combine with attention mask (which already handles padding)
-            combined_mask = attention_mask + causal_additive
-            
+            causal_mask = causal_mask.unsqueeze(0).unsqueeze(0)  # [1, 1, S, S]
+            combined_mask = attention_mask | causal_mask  # broadcast over heads in SDPA
+
             attn_output = F.scaled_dot_product_attention(
                 q, k, v,
                 attn_mask=combined_mask,
