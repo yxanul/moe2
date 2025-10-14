@@ -15,7 +15,7 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler
 import bitsandbytes as bnb
 
 # Add src to path
@@ -127,7 +127,7 @@ def train_step(
     labels = batch['labels'].to(device)
     
     # Forward pass with mixed precision
-    with autocast(dtype=torch.bfloat16 if config['training']['bf16'] else torch.float16):
+    with torch.amp.autocast('cuda', dtype=torch.bfloat16 if config['training']['bf16'] else torch.float16):
         outputs = model(
             input_ids=input_ids,
             attention_mask=attention_mask,
